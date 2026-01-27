@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nimbus - Lightweight Serverless Platform</title>
+    <meta name="description" content="Nimbus is a production-ready serverless function platform with Firecracker MicroVM isolation, multi-language support, and workflow orchestration.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        nimbus: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #0c4a6e 0%, #0369a1 50%, #0ea5e9 100%);
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 50%, #0284c7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .code-block {
+            background: #1e293b;
+            border-radius: 0.75rem;
+            overflow: hidden;
+        }
+        .code-header {
+            background: #334155;
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .code-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .animate-float {
+            animation: float 6s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        .runtime-card:hover {
+            border-color: #0ea5e9;
+            background: rgba(14, 165, 233, 0.05);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-white font-sans antialiased">
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 glass">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl gradient-bg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/>
+                        </svg>
+                    </div>
+                    <span class="text-xl font-bold">Nimbus</span>
+                </div>
+                <div class="hidden md:flex items-center gap-8">
+                    <a href="#features" class="text-slate-300 hover:text-white transition-colors">Features</a>
+                    <a href="#runtimes" class="text-slate-300 hover:text-white transition-colors">Runtimes</a>
+                    <a href="#performance" class="text-slate-300 hover:text-white transition-colors">Performance</a>
+                    <a href="#quickstart" class="text-slate-300 hover:text-white transition-colors">Quick Start</a>
+                </div>
+                <div class="flex items-center gap-4">
+                    <a href="https://github.com/oriys/nimbus" target="_blank" class="text-slate-300 hover:text-white transition-colors">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                    </a>
+                    <a href="#quickstart" class="bg-nimbus-500 hover:bg-nimbus-600 px-5 py-2.5 rounded-lg font-medium transition-colors">
+                        Get Started
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
+        <!-- Background Effects -->
+        <div class="absolute inset-0">
+            <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-nimbus-500/20 rounded-full blur-3xl animate-float"></div>
+            <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-nimbus-700/20 rounded-full blur-3xl animate-float" style="animation-delay: -3s;"></div>
+        </div>
+
+        <div class="relative max-w-7xl mx-auto px-6 text-center">
+            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-8">
+                <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                <span class="text-sm text-slate-300">Open Source Serverless Platform</span>
+            </div>
+
+            <h1 class="text-5xl md:text-7xl font-bold mb-6 leading-tight">
+                Run Functions at<br>
+                <span class="gradient-text">Lightning Speed</span>
+            </h1>
+
+            <p class="text-xl text-slate-400 max-w-3xl mx-auto mb-10 leading-relaxed">
+                Nimbus is a lightweight serverless function platform powered by Firecracker MicroVM.
+                Deploy Python, Node.js, Go, and WebAssembly functions with <strong class="text-white">~5ms cold start</strong>
+                and enterprise-grade security isolation.
+            </p>
+
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+                <a href="#quickstart" class="w-full sm:w-auto gradient-bg px-8 py-4 rounded-xl font-semibold text-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    Quick Start
+                </a>
+                <a href="https://github.com/oriys/nimbus" target="_blank" class="w-full sm:w-auto border border-slate-700 hover:border-slate-500 px-8 py-4 rounded-xl font-semibold text-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    View on GitHub
+                </a>
+            </div>
+
+            <!-- Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto">
+                <div class="text-center">
+                    <div class="text-4xl font-bold gradient-text mb-2">~5ms</div>
+                    <div class="text-slate-400">Cold Start</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-4xl font-bold gradient-text mb-2">~2ms</div>
+                    <div class="text-slate-400">Warm Start</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-4xl font-bold gradient-text mb-2">4+</div>
+                    <div class="text-slate-400">Runtimes</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-4xl font-bold gradient-text mb-2">100%</div>
+                    <div class="text-slate-400">Open Source</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-32 relative">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold mb-4">Production-Ready Features</h2>
+                <p class="text-slate-400 text-lg max-w-2xl mx-auto">
+                    Everything you need to build, deploy, and scale serverless applications
+                </p>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Feature 1: MicroVM Isolation -->
+                <div class="feature-card bg-slate-900/50 border border-slate-800 rounded-2xl p-8 transition-all duration-300">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center mb-6">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Firecracker MicroVM</h3>
+                    <p class="text-slate-400 leading-relaxed">
+                        Hardware-level isolation with AWS Firecracker. Each function runs in its own lightweight virtual machine with KVM acceleration.
+                    </p>
+                </div>
+
+                <!-- Feature 2: Multi-Language -->
+                <div class="feature-card bg-slate-900/50 border border-slate-800 rounded-2xl p-8 transition-all duration-300">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mb-6">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Multi-Language Support</h3>
+                    <p class="text-slate-400 leading-relaxed">
+                        Write functions in Python, Node.js, Go, or WebAssembly. Automatic compilation and optimized runtime environments.
+                    </p>
+                </div>
+
+                <!-- Feature 3: Workflow -->
+                <div class="feature-card bg-slate-900/50 border border-slate-800 rounded-2xl p-8 transition-all duration-300">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mb-6">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Workflow Orchestration</h3>
+                    <p class="text-slate-400 leading-relaxed">
+                        Build complex multi-function workflows with DAG support. Includes parallel execution, conditional branching, and error handling.
+                    </p>
+                </div>
+
+                <!-- Feature 4: Observability -->
+                <div class="feature-card bg-slate-900/50 border border-slate-800 rounded-2xl p-8 transition-all duration-300">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center mb-6">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Full Observability</h3>
+                    <p class="text-slate-400 leading-relaxed">
+                        Built-in Prometheus metrics, Grafana dashboards, and OpenTelemetry tracing. Monitor everything in real-time.
+                    </p>
+                </div>
+
+                <!-- Feature 5: Web Console -->
+                <div class="feature-card bg-slate-900/50 border border-slate-800 rounded-2xl p-8 transition-all duration-300">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center mb-6">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Modern Web Console</h3>
+                    <p class="text-slate-400 leading-relaxed">
+                        Beautiful React-based UI with Monaco editor, workflow visualization, and real-time log streaming.
+                    </p>
+                </div>
+
+                <!-- Feature 6: CLI & API -->
+                <div class="feature-card bg-slate-900/50 border border-slate-800 rounded-2xl p-8 transition-all duration-300">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-slate-500 to-slate-700 flex items-center justify-center mb-6">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Powerful CLI & REST API</h3>
+                    <p class="text-slate-400 leading-relaxed">
+                        Full-featured CLI tool and REST API for automation. Plus MCP server integration for AI assistants.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Runtimes Section -->
+    <section id="runtimes" class="py-32 bg-slate-900/30">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold mb-4">Supported Runtimes</h2>
+                <p class="text-slate-400 text-lg max-w-2xl mx-auto">
+                    Write functions in your favorite language with optimized execution
+                </p>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Python -->
+                <div class="runtime-card bg-slate-900/50 border border-slate-800 rounded-2xl p-6 transition-all duration-300">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-[#3776ab]/20 flex items-center justify-center">
+                            <svg class="w-7 h-7" viewBox="0 0 256 255" fill="none">
+                                <path d="M126.916.072c-64.832 0-60.784 28.115-60.784 28.115l.072 29.128h61.868v8.745H41.631S.145 61.355.145 126.77c0 65.417 36.21 63.097 36.21 63.097h21.61v-30.356s-1.165-36.21 35.632-36.21h61.362s34.475.557 34.475-33.319V33.97S194.67.072 126.916.072zM92.802 19.66a11.12 11.12 0 0 1 11.13 11.13 11.12 11.12 0 0 1-11.13 11.13 11.12 11.12 0 0 1-11.13-11.13 11.12 11.12 0 0 1 11.13-11.13z" fill="#3776AB"/>
+                                <path d="M128.757 254.126c64.832 0 60.784-28.115 60.784-28.115l-.072-29.127H127.6v-8.746h86.441s41.486 4.705 41.486-60.712c0-65.416-36.21-63.096-36.21-63.096h-21.61v30.355s1.165 36.21-35.632 36.21h-61.362s-34.475-.557-34.475 33.32v56.013s-5.235 33.897 62.518 33.897zm34.114-19.586a11.12 11.12 0 0 1-11.13-11.13 11.12 11.12 0 0 1 11.13-11.131 11.12 11.12 0 0 1 11.13 11.13 11.12 11.12 0 0 1-11.13 11.13z" fill="#FFD43B"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-lg">Python</h3>
+                            <span class="text-sm text-slate-400">v3.11</span>
+                        </div>
+                    </div>
+                    <div class="text-sm text-slate-400">
+                        <div class="flex justify-between py-2 border-b border-slate-800">
+                            <span>Execution</span>
+                            <span class="text-slate-300">Interpreted</span>
+                        </div>
+                        <div class="flex justify-between py-2">
+                            <span>Cold Start</span>
+                            <span class="text-nimbus-400">~500ms</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Node.js -->
+                <div class="runtime-card bg-slate-900/50 border border-slate-800 rounded-2xl p-6 transition-all duration-300">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-[#339933]/20 flex items-center justify-center">
+                            <svg class="w-7 h-7" viewBox="0 0 256 289" fill="none">
+                                <path d="M128 288.464c-3.975 0-7.685-1.06-11.13-2.915l-35.247-20.936c-5.3-2.915-2.65-3.975-1.06-4.505 7.155-2.385 8.48-2.915 15.9-7.155.795-.53 1.855-.265 2.65.265l27.032 16.166c1.06.53 2.385.53 3.18 0l105.74-61.217c1.06-.53 1.59-1.59 1.59-2.915V83.346c0-1.325-.53-2.385-1.59-2.915L129.325 19.479c-1.06-.53-2.385-.53-3.18 0L20.405 80.431c-1.06.53-1.59 1.855-1.59 2.915v121.904c0 1.06.53 2.385 1.59 2.915l28.887 16.696c15.635 7.95 25.442-1.325 25.442-10.6V93.946c0-1.59 1.325-3.18 3.18-3.18h13.515c1.59 0 3.18 1.325 3.18 3.18v120.315c0 20.936-11.395 33.127-31.272 33.127-6.095 0-10.865 0-24.38-6.625l-27.827-15.9C4.24 220.623 0 213.203 0 205.253V83.346c0-7.95 4.24-15.37 11.13-19.345L116.87 2.784c6.625-3.71 15.635-3.71 22.26 0L244.87 64.001c6.89 3.975 11.13 11.395 11.13 19.345v121.904c0 7.95-4.24 15.37-11.13 19.345L139.13 285.549c-3.445 1.855-7.155 2.915-11.13 2.915z" fill="#539E43"/>
+                                <path d="M159.903 204.723c-46.142 0-55.887-21.201-55.887-38.957 0-1.59 1.325-3.18 3.18-3.18h13.78c1.59 0 2.915 1.06 2.915 2.65 2.12 14.045 8.215 20.936 36.042 20.936 22.26 0 31.537-5.035 31.537-16.96 0-6.89-2.65-11.925-37.102-15.37-28.622-2.915-46.377-9.275-46.377-32.332 0-21.466 18.02-34.187 48.232-34.187 33.922 0 50.617 11.66 52.737 37.102 0 .795-.265 1.59-.795 2.385-.53.53-1.325 1.06-2.12 1.06h-13.78c-1.325 0-2.65-1.06-2.915-2.385-3.18-14.575-11.395-19.345-33.127-19.345-24.38 0-27.297 8.48-27.297 14.84 0 7.685 3.445 10.07 35.777 14.31 32.067 4.24 47.702 10.335 47.702 33.127-.265 23.321-19.345 36.306-53.002 36.306z" fill="#539E43"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-lg">Node.js</h3>
+                            <span class="text-sm text-slate-400">v20</span>
+                        </div>
+                    </div>
+                    <div class="text-sm text-slate-400">
+                        <div class="flex justify-between py-2 border-b border-slate-800">
+                            <span>Execution</span>
+                            <span class="text-slate-300">Interpreted</span>
+                        </div>
+                        <div class="flex justify-between py-2">
+                            <span>Cold Start</span>
+                            <span class="text-nimbus-400">~500ms</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Go -->
+                <div class="runtime-card bg-slate-900/50 border border-slate-800 rounded-2xl p-6 transition-all duration-300">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-[#00ADD8]/20 flex items-center justify-center">
+                            <svg class="w-7 h-7" viewBox="0 0 256 348" fill="none">
+                                <path d="M4.093 186.213c-.8 0-1.2-.4-1.2-1.2v-12.006c0-.8.4-1.2 1.2-1.2h24.813c.8 0 1.2.4 1.2 1.2v12.006c0 .8-.4 1.2-1.2 1.2H4.093zm227.001 0c-.8 0-1.2-.4-1.2-1.2v-12.006c0-.8.4-1.2 1.2-1.2h24.013c.8 0 1.2.4 1.2 1.2v12.006c0 .8-.4 1.2-1.2 1.2h-24.013z" fill="#00ADD8"/>
+                                <path d="M66.105 273.821c-.4.4-1.2.4-1.6 0l-8.405-8.405c-.4-.4-.4-1.2 0-1.6l56.834-56.834c.4-.4.4-1.2 0-1.6l-56.834-56.434c-.4-.4-.4-1.2 0-1.6l8.405-8.405c.4-.4 1.2-.4 1.6 0l66.839 66.839c.4.4.4 1.2 0 1.6l-66.839 66.439z" fill="#00ADD8"/>
+                                <path d="M130.544 273.821c-.4.4-1.2.4-1.6 0l-8.405-8.405c-.4-.4-.4-1.2 0-1.6l56.834-56.834c.4-.4.4-1.2 0-1.6l-56.834-56.434c-.4-.4-.4-1.2 0-1.6l8.405-8.405c.4-.4 1.2-.4 1.6 0l66.839 66.839c.4.4.4 1.2 0 1.6l-66.839 66.439z" fill="#00ADD8"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-lg">Go</h3>
+                            <span class="text-sm text-slate-400">v1.24</span>
+                        </div>
+                    </div>
+                    <div class="text-sm text-slate-400">
+                        <div class="flex justify-between py-2 border-b border-slate-800">
+                            <span>Execution</span>
+                            <span class="text-slate-300">Compiled</span>
+                        </div>
+                        <div class="flex justify-between py-2">
+                            <span>Cold Start</span>
+                            <span class="text-green-400">~125ms</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- WebAssembly -->
+                <div class="runtime-card bg-slate-900/50 border border-slate-800 rounded-2xl p-6 transition-all duration-300">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-[#654FF0]/20 flex items-center justify-center">
+                            <svg class="w-7 h-7" viewBox="0 0 256 256" fill="none">
+                                <path d="M128 0L0 73.6v108.8L128 256l128-73.6V73.6L128 0z" fill="#654FF0"/>
+                                <path d="M53.2 142.4h19.2l7.2-35.2 8.8 35.2h19.2l17.6-68.8h-17.6l-9.6 40-10.4-40h-16l-10.4 40-9.6-40H34l17.2 68.8zM180.8 142.4h19.2l7.2-35.2 8.8 35.2H235.2l17.6-68.8h-17.6l-9.6 40-10.4-40h-16l-10.4 40-9.6-40h-17.6l17.2 68.8z" fill="white"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-lg">WebAssembly</h3>
+                            <span class="text-sm text-slate-400">wazero</span>
+                        </div>
+                    </div>
+                    <div class="text-sm text-slate-400">
+                        <div class="flex justify-between py-2 border-b border-slate-800">
+                            <span>Execution</span>
+                            <span class="text-slate-300">Compiled</span>
+                        </div>
+                        <div class="flex justify-between py-2">
+                            <span>Cold Start</span>
+                            <span class="text-green-400">~125ms</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Performance Section -->
+    <section id="performance" class="py-32">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="grid lg:grid-cols-2 gap-16 items-center">
+                <div>
+                    <h2 class="text-4xl font-bold mb-6">Blazing Fast Performance</h2>
+                    <p class="text-slate-400 text-lg mb-8 leading-relaxed">
+                        Nimbus leverages memory snapshots and VM pooling to achieve industry-leading cold start times.
+                        Your functions are ready to execute in milliseconds, not seconds.
+                    </p>
+
+                    <div class="space-y-6">
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 rounded-xl bg-nimbus-500/20 flex items-center justify-center flex-shrink-0">
+                                <svg class="w-6 h-6 text-nimbus-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-lg mb-1">Snapshot Restore</h3>
+                                <p class="text-slate-400">Pre-initialized VM memory snapshots reduce cold starts to ~5ms</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 rounded-xl bg-nimbus-500/20 flex items-center justify-center flex-shrink-0">
+                                <svg class="w-6 h-6 text-nimbus-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-lg mb-1">VM Pool Management</h3>
+                                <p class="text-slate-400">Pre-warmed VM pool with automatic scaling for consistent performance</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 rounded-xl bg-nimbus-500/20 flex items-center justify-center flex-shrink-0">
+                                <svg class="w-6 h-6 text-nimbus-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-lg mb-1">Multi-Layer Isolation</h3>
+                                <p class="text-slate-400">Hardware virtualization + network isolation + resource limits + filesystem isolation</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-8">
+                    <h3 class="font-semibold text-lg mb-6">Performance Comparison</h3>
+
+                    <div class="space-y-6">
+                        <div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-slate-300">Warm Start</span>
+                                <span class="text-nimbus-400">~2ms</span>
+                            </div>
+                            <div class="h-3 bg-slate-800 rounded-full overflow-hidden">
+                                <div class="h-full w-[5%] gradient-bg rounded-full"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-slate-300">Cold Start (Snapshot)</span>
+                                <span class="text-nimbus-400">~5ms</span>
+                            </div>
+                            <div class="h-3 bg-slate-800 rounded-full overflow-hidden">
+                                <div class="h-full w-[8%] gradient-bg rounded-full"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-slate-300">Cold Start (Go/WASM)</span>
+                                <span class="text-nimbus-400">~125ms</span>
+                            </div>
+                            <div class="h-3 bg-slate-800 rounded-full overflow-hidden">
+                                <div class="h-full w-[20%] gradient-bg rounded-full"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-slate-300">Cold Start (Python/Node)</span>
+                                <span class="text-nimbus-400">~500ms</span>
+                            </div>
+                            <div class="h-3 bg-slate-800 rounded-full overflow-hidden">
+                                <div class="h-full w-[50%] gradient-bg rounded-full"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-slate-400">Traditional Container</span>
+                                <span class="text-slate-500">~1000ms+</span>
+                            </div>
+                            <div class="h-3 bg-slate-800 rounded-full overflow-hidden">
+                                <div class="h-full w-full bg-slate-700 rounded-full"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Start Section -->
+    <section id="quickstart" class="py-32 bg-slate-900/30">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold mb-4">Get Started in Minutes</h2>
+                <p class="text-slate-400 text-lg max-w-2xl mx-auto">
+                    Deploy your first function with just a few commands
+                </p>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-8">
+                <!-- Step 1: Install -->
+                <div>
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-10 h-10 rounded-full gradient-bg flex items-center justify-center font-bold">1</div>
+                        <h3 class="text-xl font-semibold">Start the Platform</h3>
+                    </div>
+
+                    <div class="code-block">
+                        <div class="code-header">
+                            <div class="code-dot bg-red-500"></div>
+                            <div class="code-dot bg-yellow-500"></div>
+                            <div class="code-dot bg-green-500"></div>
+                            <span class="text-sm text-slate-400 ml-2">Terminal</span>
+                        </div>
+                        <pre class="p-4 text-sm font-mono overflow-x-auto"><code class="text-slate-300"><span class="text-slate-500"># Docker Compose (macOS/Windows)</span>
+<span class="text-nimbus-400">$</span> docker compose up -d
+<span class="text-nimbus-400">$</span> make run
+
+<span class="text-slate-500"># Or Kubernetes (OrbStack)</span>
+<span class="text-nimbus-400">$</span> cd deployments/k8s/overlays/orbstack
+<span class="text-nimbus-400">$</span> ./start.sh</code></pre>
+                    </div>
+                </div>
+
+                <!-- Step 2: Configure CLI -->
+                <div>
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-10 h-10 rounded-full gradient-bg flex items-center justify-center font-bold">2</div>
+                        <h3 class="text-xl font-semibold">Configure CLI</h3>
+                    </div>
+
+                    <div class="code-block">
+                        <div class="code-header">
+                            <div class="code-dot bg-red-500"></div>
+                            <div class="code-dot bg-yellow-500"></div>
+                            <div class="code-dot bg-green-500"></div>
+                            <span class="text-sm text-slate-400 ml-2">Terminal</span>
+                        </div>
+                        <pre class="p-4 text-sm font-mono overflow-x-auto"><code class="text-slate-300"><span class="text-slate-500"># Initialize CLI configuration</span>
+<span class="text-nimbus-400">$</span> nimbus config init --api-url http://localhost:8080
+
+<span class="text-slate-500"># Verify connection</span>
+<span class="text-nimbus-400">$</span> nimbus list</code></pre>
+                    </div>
+                </div>
+
+                <!-- Step 3: Create Function -->
+                <div>
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-10 h-10 rounded-full gradient-bg flex items-center justify-center font-bold">3</div>
+                        <h3 class="text-xl font-semibold">Create Your Function</h3>
+                    </div>
+
+                    <div class="code-block">
+                        <div class="code-header">
+                            <div class="code-dot bg-red-500"></div>
+                            <div class="code-dot bg-yellow-500"></div>
+                            <div class="code-dot bg-green-500"></div>
+                            <span class="text-sm text-slate-400 ml-2">hello.py</span>
+                        </div>
+                        <pre class="p-4 text-sm font-mono overflow-x-auto"><code class="text-slate-300"><span class="text-purple-400">def</span> <span class="text-yellow-400">handler</span>(event):
+    name = event.get(<span class="text-green-400">'name'</span>, <span class="text-green-400">'World'</span>)
+    <span class="text-purple-400">return</span> {
+        <span class="text-green-400">'message'</span>: <span class="text-green-400">f'Hello, </span>{name}<span class="text-green-400">!'</span>
+    }</code></pre>
+                    </div>
+                </div>
+
+                <!-- Step 4: Deploy & Invoke -->
+                <div>
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-10 h-10 rounded-full gradient-bg flex items-center justify-center font-bold">4</div>
+                        <h3 class="text-xl font-semibold">Deploy & Invoke</h3>
+                    </div>
+
+                    <div class="code-block">
+                        <div class="code-header">
+                            <div class="code-dot bg-red-500"></div>
+                            <div class="code-dot bg-yellow-500"></div>
+                            <div class="code-dot bg-green-500"></div>
+                            <span class="text-sm text-slate-400 ml-2">Terminal</span>
+                        </div>
+                        <pre class="p-4 text-sm font-mono overflow-x-auto"><code class="text-slate-300"><span class="text-slate-500"># Create function</span>
+<span class="text-nimbus-400">$</span> nimbus create hello \
+    --runtime python3.11 \
+    --handler handler \
+    --code hello.py
+
+<span class="text-slate-500"># Invoke function</span>
+<span class="text-nimbus-400">$</span> nimbus invoke hello --data '{"name": "Nimbus"}'
+<span class="text-green-400">{"message": "Hello, Nimbus!"}</span></code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section class="py-32">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold mb-4">Architecture Overview</h2>
+                <p class="text-slate-400 text-lg max-w-2xl mx-auto">
+                    Built on proven technologies for reliability and performance
+                </p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- API Gateway -->
+                <div class="text-center">
+                    <div class="w-20 h-20 rounded-2xl gradient-bg flex items-center justify-center mx-auto mb-6">
+                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">API Gateway</h3>
+                    <p class="text-slate-400">
+                        Go-based HTTP gateway with chi router. Handles function management, invocation routing, and authentication.
+                    </p>
+                </div>
+
+                <!-- Scheduler -->
+                <div class="text-center">
+                    <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-6">
+                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Scheduler</h3>
+                    <p class="text-slate-400">
+                        Distributed task scheduler with NATS messaging. Supports async invocation, cron triggers, and workflow execution.
+                    </p>
+                </div>
+
+                <!-- VM Pool -->
+                <div class="text-center">
+                    <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center mx-auto mb-6">
+                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">VM Pool</h3>
+                    <p class="text-slate-400">
+                        Firecracker MicroVM pool manager. Pre-warms VMs, handles auto-scaling, and manages VM lifecycle.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Tech Stack -->
+            <div class="mt-20 text-center">
+                <h3 class="text-lg text-slate-400 mb-8">Powered by</h3>
+                <div class="flex flex-wrap items-center justify-center gap-8 md:gap-12">
+                    <div class="flex items-center gap-2 text-slate-300">
+                        <svg class="w-8 h-8" viewBox="0 0 256 348" fill="currentColor">
+                            <path d="M128 288.464c-3.975 0-7.685-1.06-11.13-2.915l-35.247-20.936c-5.3-2.915-2.65-3.975-1.06-4.505 7.155-2.385 8.48-2.915 15.9-7.155.795-.53 1.855-.265 2.65.265l27.032 16.166c1.06.53 2.385.53 3.18 0l105.74-61.217c1.06-.53 1.59-1.59 1.59-2.915V83.346c0-1.325-.53-2.385-1.59-2.915L129.325 19.479c-1.06-.53-2.385-.53-3.18 0L20.405 80.431c-1.06.53-1.59 1.855-1.59 2.915v121.904c0 1.06.53 2.385 1.59 2.915l28.887 16.696c15.635 7.95 25.442-1.325 25.442-10.6V93.946c0-1.59 1.325-3.18 3.18-3.18h13.515c1.59 0 3.18 1.325 3.18 3.18v120.315c0 20.936-11.395 33.127-31.272 33.127-6.095 0-10.865 0-24.38-6.625l-27.827-15.9C4.24 220.623 0 213.203 0 205.253V83.346c0-7.95 4.24-15.37 11.13-19.345L116.87 2.784c6.625-3.71 15.635-3.71 22.26 0L244.87 64.001c6.89 3.975 11.13 11.395 11.13 19.345v121.904c0 7.95-4.24 15.37-11.13 19.345L139.13 285.549c-3.445 1.855-7.155 2.915-11.13 2.915z"/>
+                        </svg>
+                        <span class="font-medium">Go</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-slate-300">
+                        <svg class="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 10.11c1.03 0 1.87.84 1.87 1.89 0 1-.84 1.85-1.87 1.85S10.13 13 10.13 12c0-1.05.84-1.89 1.87-1.89M7.37 20c.63.38 2.01-.2 3.6-1.7-.52-.59-1.03-1.23-1.51-1.9-.82-.08-1.63-.2-2.4-.36-.51 2.14-.32 3.61.31 3.96m.71-5.74l-.29-.51c-.11.29-.22.58-.29.86.27.06.57.11.88.16l-.3-.51m6.54-.76l.81-1.5-.81-1.5c-.3-.53-.62-1-.91-1.47C13.17 9 12.6 9 12 9c-.6 0-1.17 0-1.71.03-.29.47-.61.94-.91 1.47L8.57 12l.81 1.5c.3.53.62 1 .91 1.47.54.03 1.11.03 1.71.03.6 0 1.17 0 1.71-.03.29-.47.61-.94.91-1.47M12 6.78c-.19.22-.39.45-.59.72h1.18c-.2-.27-.4-.5-.59-.72m0 10.44c.19-.22.39-.45.59-.72h-1.18c.2.27.4.5.59.72M16.62 4c-.62-.38-2 .2-3.59 1.7.52.59 1.03 1.23 1.51 1.9.82.08 1.63.2 2.4.36.51-2.14.32-3.61-.32-3.96m-.7 5.74l.29.51c.11-.29.22-.58.29-.86-.27-.06-.57-.11-.88-.16l.3.51m1.45-7.05c1.47.84 1.63 3.05 1.01 5.63 2.54.75 4.37 1.99 4.37 3.68 0 1.69-1.83 2.93-4.37 3.68.62 2.58.46 4.79-1.01 5.63-1.46.84-3.45-.12-5.37-1.95-1.92 1.83-3.91 2.79-5.38 1.95-1.46-.84-1.62-3.05-1-5.63-2.54-.75-4.37-1.99-4.37-3.68 0-1.69 1.83-2.93 4.37-3.68-.62-2.58-.46-4.79 1-5.63 1.47-.84 3.46.12 5.38 1.95 1.92-1.83 3.91-2.79 5.37-1.95M17.08 12c.34.75.64 1.5.89 2.26 2.1-.63 3.28-1.53 3.28-2.26 0-.73-1.18-1.63-3.28-2.26-.25.76-.55 1.51-.89 2.26M6.92 12c-.34-.75-.64-1.5-.89-2.26-2.1.63-3.28 1.53-3.28 2.26 0 .73 1.18 1.63 3.28 2.26.25-.76.55-1.51.89-2.26m9 2.26l-.3.51c.31-.05.61-.1.88-.16-.07-.28-.18-.57-.29-.86l-.29.51m-2.89 4.04c1.59 1.5 2.97 2.08 3.59 1.7.64-.35.83-1.82.32-3.96-.77.16-1.58.28-2.4.36-.48.67-.99 1.31-1.51 1.9M8.08 9.74l.3-.51c-.31.05-.61.1-.88.16.07.28.18.57.29.86l.29-.51m2.89-4.04C9.38 4.2 8 3.62 7.37 4c-.63.35-.82 1.82-.31 3.96a22.7 22.7 0 0 1 2.4-.36c.48-.67.99-1.31 1.51-1.9z"/>
+                        </svg>
+                        <span class="font-medium">React</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-slate-300">
+                        <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M5.5 8.5a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0-1.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM12 15a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0-1.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM18.5 21.5a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0-1.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM5.5 21.5a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0-1.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM18.5 8.5a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0-1.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM12 21.5a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0-1.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
+                        </svg>
+                        <span class="font-medium">Firecracker</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-slate-300">
+                        <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M13.983 11.078h2.119a.186.186 0 0 0 .186-.185V9.006a.186.186 0 0 0-.186-.186h-2.119a.185.185 0 0 0-.185.185v1.888c0 .102.083.185.185.185m-2.954-5.43h2.118a.186.186 0 0 0 .186-.186V3.574a.186.186 0 0 0-.186-.185h-2.118a.185.185 0 0 0-.185.185v1.888c0 .102.082.185.185.186m0 2.716h2.118a.187.187 0 0 0 .186-.186V6.29a.186.186 0 0 0-.186-.185h-2.118a.185.185 0 0 0-.185.185v1.887c0 .102.082.185.185.186m-2.93 0h2.12a.186.186 0 0 0 .184-.186V6.29a.185.185 0 0 0-.185-.185H8.1a.185.185 0 0 0-.185.185v1.887c0 .102.083.185.185.186m-2.964 0h2.119a.186.186 0 0 0 .185-.186V6.29a.185.185 0 0 0-.185-.185H5.136a.186.186 0 0 0-.186.185v1.887c0 .102.084.185.186.186m5.893 2.715h2.118a.186.186 0 0 0 .186-.185V9.006a.186.186 0 0 0-.186-.186h-2.118a.185.185 0 0 0-.185.185v1.888c0 .102.082.185.185.185m-2.93 0h2.12a.185.185 0 0 0 .184-.185V9.006a.185.185 0 0 0-.184-.186h-2.12a.185.185 0 0 0-.184.185v1.888c0 .102.083.185.185.185m-2.964 0h2.119a.185.185 0 0 0 .185-.185V9.006a.185.185 0 0 0-.185-.186H5.136a.186.186 0 0 0-.186.186v1.887c0 .102.084.185.186.185m-2.92 0h2.12a.185.185 0 0 0 .184-.185V9.006a.185.185 0 0 0-.184-.186h-2.12a.185.185 0 0 0-.184.185v1.888c0 .102.082.185.185.185M23.763 9.89c-.065-.051-.672-.51-1.954-.51-.338.001-.676.03-1.01.087-.248-1.7-1.653-2.53-1.716-2.566l-.344-.199-.226.327c-.284.438-.49.922-.612 1.43-.23.97-.09 1.882.403 2.661-.595.332-1.55.413-1.744.42H.751a.751.751 0 0 0-.75.748 11.376 11.376 0 0 0 .692 4.062c.545 1.428 1.355 2.48 2.41 3.124 1.18.723 3.1 1.137 5.275 1.137.983.003 1.963-.086 2.93-.266a12.248 12.248 0 0 0 3.823-1.389c.98-.567 1.86-1.288 2.61-2.136 1.252-1.418 1.998-2.997 2.553-4.4h.221c1.372 0 2.215-.549 2.68-1.009.309-.293.55-.65.707-1.046l.098-.288z"/>
+                        </svg>
+                        <span class="font-medium">Docker</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-slate-300">
+                        <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M11.944 17.97L4.58 13.62 11.943 24l7.37-10.38-7.372 4.35h.003zM12.056 0L4.69 12.223l7.365 4.354 7.365-4.35L12.056 0z"/>
+                        </svg>
+                        <span class="font-medium">PostgreSQL</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-slate-300">
+                        <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M10.478 11.632L4.715 9.066a.418.418 0 0 1-.254-.385V3.535a.418.418 0 0 1 .254-.385l5.763-2.566a.42.42 0 0 1 .418 0l5.764 2.566a.418.418 0 0 1 .254.385v5.146a.418.418 0 0 1-.254.385l-5.764 2.566a.42.42 0 0 1-.418 0m2.99-7.313L11.286 3.2a.21.21 0 0 0-.207 0l-2.183.972a.21.21 0 0 0-.127.192v1.944a.21.21 0 0 0 .127.193l2.182.97a.21.21 0 0 0 .208 0l2.182-.97a.21.21 0 0 0 .127-.193V4.364a.21.21 0 0 0-.127-.192m5.285 9.86l-2.183.971a.21.21 0 0 0-.127.192v1.944a.21.21 0 0 0 .127.193l2.182.97a.21.21 0 0 0 .208 0l2.182-.97a.21.21 0 0 0 .127-.193v-1.944a.21.21 0 0 0-.127-.193l-2.182-.97a.21.21 0 0 0-.207 0"/>
+                        </svg>
+                        <span class="font-medium">NATS</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="py-32">
+        <div class="max-w-4xl mx-auto px-6 text-center">
+            <h2 class="text-4xl md:text-5xl font-bold mb-6">
+                Ready to Build Something Amazing?
+            </h2>
+            <p class="text-xl text-slate-400 mb-10">
+                Join the open-source community and start deploying serverless functions today.
+            </p>
+
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <a href="https://github.com/oriys/nimbus" target="_blank" class="w-full sm:w-auto gradient-bg px-8 py-4 rounded-xl font-semibold text-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    Star on GitHub
+                </a>
+                <a href="#quickstart" class="w-full sm:w-auto border border-slate-700 hover:border-slate-500 px-8 py-4 rounded-xl font-semibold text-lg transition-colors flex items-center justify-center gap-2">
+                    Read Documentation
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 py-12">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl gradient-bg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/>
+                        </svg>
+                    </div>
+                    <span class="text-xl font-bold">Nimbus</span>
+                </div>
+
+                <div class="flex items-center gap-8">
+                    <a href="https://github.com/oriys/nimbus" target="_blank" class="text-slate-400 hover:text-white transition-colors">GitHub</a>
+                    <a href="#" class="text-slate-400 hover:text-white transition-colors">Documentation</a>
+                    <a href="#" class="text-slate-400 hover:text-white transition-colors">API Reference</a>
+                </div>
+
+                <div class="text-slate-500 text-sm">
+                    MIT License
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Navbar background on scroll
+        const nav = document.querySelector('nav');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                nav.classList.add('bg-slate-950/80');
+            } else {
+                nav.classList.remove('bg-slate-950/80');
+            }
+        });
+    </script>
+</body>
+</html>
