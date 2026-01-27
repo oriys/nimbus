@@ -1,0 +1,56 @@
+---
+title: 文档
+---
+
+import Link from "@docusaurus/Link";
+
+本页是 Function 文档的入口。推荐从「Docker 模式快速开始」上手，然后查看 API 参考。
+
+<div className="row">
+  <div className="col col--6">
+    <div className="fnCard">
+      <h2>Docker 模式快速开始</h2>
+      <p>适用于 macOS/Windows（无 KVM）：本机运行 Gateway，函数执行由 Docker 运行时容器完成。</p>
+      <Link className="button button--primary button--sm" to="/docs/docker-mode">
+        打开 Docker 模式手册
+      </Link>
+    </div>
+  </div>
+  <div className="col col--6">
+    <div className="fnCard">
+      <h2>API Reference</h2>
+      <p>函数管理、同步/异步调用、调用记录查询、系统状态与指标接口。</p>
+      <Link className="button button--primary button--sm" to="/docs/api">
+        打开 API 总览
+      </Link>
+    </div>
+  </div>
+  <div className="col col--6">
+    <div className="fnCard">
+      <h2>核心流程图</h2>
+      <p>深入理解函数编译、同步/异步调用以及虚拟机池管理的内部工作逻辑。</p>
+      <Link className="button button--secondary button--sm" to="/docs/workflows">
+        查看流程图
+      </Link>
+    </div>
+  </div>
+</div>
+
+## 基本信息
+
+- 默认服务地址：`http://localhost:8080`（以实际配置的 `server.http_port` 为准）
+- API 前缀：`/api/v1`
+- 数据格式：JSON（请求/响应）
+- 错误格式：`{"error":"..."}`
+
+健康检查：
+```bash
+curl http://localhost:8080/health
+```
+
+## 本地预览（Docusaurus）
+
+```bash
+npm install
+npm run docs:start
+```

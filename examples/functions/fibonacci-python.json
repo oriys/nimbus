@@ -1,0 +1,9 @@
+{
+  "name": "fibonacci-python",
+  "description": "Calculate Fibonacci sequence (CPU intensive)",
+  "runtime": "python3.11",
+  "handler": "handler.handle",
+  "memory_mb": 256,
+  "timeout_sec": 10,
+  "code": "def fib(n):\n    if n <= 1: return n\n    return fib(n-1) + fib(n-2)\n\ndef handle(event, context):\n    n = int(event.get(\"n\", 10))\n    result = fib(n)\n    return {\n        \"statusCode\": 200,\n        \"body\": {\n            \"n\": n,\n            \"result\": result\n        }\n    }"
+}

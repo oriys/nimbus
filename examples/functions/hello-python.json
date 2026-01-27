@@ -1,0 +1,9 @@
+{
+  "name": "hello-python",
+  "description": "A classic Hello World example in Python 3.11",
+  "runtime": "python3.11",
+  "handler": "handler.handle",
+  "memory_mb": 128,
+  "timeout_sec": 5,
+  "code": "def handle(event, context):\n    print(f\"Received event: {event}\")\n    name = event.get(\"name\", \"World\")\n    return {\n        \"statusCode\": 200,\n        \"body\": {\n            \"message\": f\"Hello, {name}!\",\n            \"runtime\": \"python3.11\"\n        }\n    }"
+}

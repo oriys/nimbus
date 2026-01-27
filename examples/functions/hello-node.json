@@ -1,0 +1,14 @@
+{
+  "name": "hello-node",
+  "description": "A classic Hello World example in Node.js 20",
+  "runtime": "nodejs20",
+  "handler": "index.handler",
+  "memory_mb": 128,
+  "timeout_sec": 5,
+  "code": "exports.handler = async (event, context) => {\n    console.log(\"Received event:\", JSON.stringify(event));\n    const name = event.name || \"World\";\n    return {\n        statusCode: 200,\n        body: {\n            message: `Hello, ${name}!`,
+            runtime: \"nodejs20\",
+            timestamp: new Date().toISOString()
+        }
+    };
+};"
+}

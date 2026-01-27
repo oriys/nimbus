@@ -1,0 +1,9 @@
+{
+  "name": "timestamp-node",
+  "description": "Returns current timestamp in multiple formats",
+  "runtime": "nodejs20",
+  "handler": "index.handler",
+  "memory_mb": 128,
+  "timeout_sec": 5,
+  "code": "exports.handler = async (event, context) => {\n    const now = new Date();\n    const timezone = event.timezone || 'UTC';\n    \n    return {\n        statusCode: 200,\n        body: {\n            iso: now.toISOString(),\n            unix: Math.floor(now.getTime() / 1000),\n            unix_ms: now.getTime(),\n            utc: now.toUTCString(),\n            local: now.toLocaleString('en-US', { timeZone: timezone }),\n            date: now.toISOString().split('T')[0],\n            time: now.toISOString().split('T')[1].split('.')[0]\n        }\n    };\n};"
+}

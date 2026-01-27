@@ -1,0 +1,9 @@
+{
+  "name": "echo-python",
+  "description": "Simple echo function that returns the input as-is",
+  "runtime": "python3.11",
+  "handler": "handler.handle",
+  "memory_mb": 128,
+  "timeout_sec": 5,
+  "code": "def handle(event, context):\n    \"\"\"Echo function - returns input unchanged.\"\"\"\n    return {\n        \"statusCode\": 200,\n        \"body\": {\n            \"echo\": event,\n            \"message\": \"Echo successful\"\n        }\n    }"
+}
