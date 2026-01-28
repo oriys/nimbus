@@ -244,6 +244,10 @@ func (a *Agent) handleMessage(ctx context.Context, msg *Message) *Message {
 		// 调试请求，处理 DAP 消息
 		return a.handleDebug(ctx, msg)
 
+	case MessageTypeState:
+		// 状态操作请求
+		return a.handleState(ctx, msg)
+
 	default:
 		// 未知消息类型
 		return errorResponse(msg.RequestID, fmt.Sprintf("unknown message type: %d", msg.Type))
@@ -471,6 +475,78 @@ func (a *Agent) handleDebugDAP(requestID string, dapMsg json.RawMessage) *Messag
 		DAPMessages: responses,
 	}
 
+	data, _ := json.Marshal(resp)
+	return &Message{
+		Type:      MessageTypeResp,
+		RequestID: requestID,
+		Payload:   data,
+	}
+}
+
+// handleState 处理状态操作请求
+// Agent 将状态操作转发给宿主机，由宿主机与 Redis 交互
+//
+// 参数:
+//   - ctx: 上下文
+//   - msg: 状态请求消息
+//
+// 返回:
+//   - *Message: 响应消息
+func (a *Agent) handleState(ctx context.Context, msg *Message) *Message {
+	// 检查是否已初始化
+	if !a.initialized {
+		return a.stateErrorResponse(msg.RequestID, "agent not initialized")
+	}
+
+	// 检查状态功能是否启用
+	if !a.config.StateEnabled {
+		return a.stateErrorResponse(msg.RequestID, "state feature not enabled for this function")
+	}
+
+	// 解析状态操作载荷
+	var payload StatePayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		return a.stateErrorResponse(msg.RequestID, fmt.Sprintf("invalid state payload: %v", err))
+	}
+
+	// 验证操作类型
+	validOps := map[string]bool{
+		"get": true, "get_with_version": true,
+		"set": true, "set_with_version": true,
+		"delete": true, "incr": true,
+		"exists": true, "keys": true, "expire": true,
+	}
+	if !validOps[payload.Operation] {
+		return a.stateErrorResponse(msg.RequestID, fmt.Sprintf("unknown operation: %s", payload.Operation))
+	}
+
+	// 这里的状态操作实际上是在宿主机侧处理的
+	// Agent 只是作为代理，将请求转发给宿主机
+	// 在当前实现中，状态请求直接通过 vsock 消息处理
+	// 宿主机收到 MessageTypeState 消息后会处理并返回结果
+
+	// 对于 Agent 内部的状态请求（如从函数代码调用），
+	// 需要通过本地 HTTP API 或 Unix socket 转发
+	// 此处返回一个占位响应，实际逻辑在宿主机处理
+
+	resp := &StateResponsePayload{
+		Success: true,
+	}
+
+	data, _ := json.Marshal(resp)
+	return &Message{
+		Type:      MessageTypeResp,
+		RequestID: msg.RequestID,
+		Payload:   data,
+	}
+}
+
+// stateErrorResponse 创建状态操作错误响应
+func (a *Agent) stateErrorResponse(requestID, errMsg string) *Message {
+	resp := &StateResponsePayload{
+		Success: false,
+		Error:   errMsg,
+	}
 	data, _ := json.Marshal(resp)
 	return &Message{
 		Type:      MessageTypeResp,
@@ -740,6 +816,115 @@ result = handler(input_data)
 print(json.dumps(result))
 `, FunctionDir, config.Handler)
 
+	// 创建 nimbus 状态 API 模块
+	nimbusModule := fmt.Sprintf(`
+"""
+Nimbus State API - 为有状态函数提供状态管理能力
+"""
+import json
+import os
+import urllib.request
+import urllib.error
+
+_FUNCTION_ID = '%s'
+_SESSION_KEY = os.environ.get('NIMBUS_SESSION_KEY', '%s')
+_STATE_API_URL = 'http://127.0.0.1:9998/state'
+
+class StateError(Exception):
+    """状态操作错误"""
+    pass
+
+def _state_request(operation, scope, key, **kwargs):
+    """发送状态请求到 Agent"""
+    payload = {
+        'function_id': _FUNCTION_ID,
+        'session_key': _SESSION_KEY,
+        'operation': operation,
+        'scope': scope,
+        'key': key,
+    }
+    payload.update(kwargs)
+
+    try:
+        data = json.dumps(payload).encode('utf-8')
+        req = urllib.request.Request(_STATE_API_URL, data=data, method='POST')
+        req.add_header('Content-Type', 'application/json')
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            result = json.loads(resp.read().decode('utf-8'))
+            if not result.get('success'):
+                raise StateError(result.get('error', 'Unknown error'))
+            return result.get('value')
+    except urllib.error.URLError as e:
+        raise StateError(f'State API unavailable: {e}')
+
+class State:
+    """状态操作类"""
+
+    def __init__(self, scope='session'):
+        """
+        初始化状态操作
+
+        参数:
+            scope: 作用域 - 'session'(会话级), 'function'(函数级), 'invocation'(调用级)
+        """
+        self.scope = scope
+
+    def get(self, key, default=None):
+        """获取状态值"""
+        try:
+            value = _state_request('get', self.scope, key)
+            return json.loads(value) if value else default
+        except (StateError, json.JSONDecodeError):
+            return default
+
+    def set(self, key, value, ttl=None):
+        """设置状态值"""
+        kwargs = {'value': json.dumps(value)}
+        if ttl:
+            kwargs['ttl'] = ttl
+        _state_request('set', self.scope, key, **kwargs)
+
+    def delete(self, key):
+        """删除状态"""
+        _state_request('delete', self.scope, key)
+
+    def incr(self, key, delta=1):
+        """原子递增"""
+        result = _state_request('incr', self.scope, key, delta=delta)
+        return json.loads(result) if result else 0
+
+    def exists(self, key):
+        """检查键是否存在"""
+        result = _state_request('exists', self.scope, key)
+        return json.loads(result) if result else False
+
+    def keys(self, pattern='*'):
+        """列出匹配的键"""
+        result = _state_request('keys', self.scope, pattern)
+        return json.loads(result) if result else []
+
+    def expire(self, key, ttl):
+        """设置过期时间"""
+        _state_request('expire', self.scope, key, ttl=ttl)
+
+# 预创建的状态实例
+session = State('session')    # 会话级状态
+function = State('function')  # 函数级状态（全局）
+
+def get_session_key():
+    """获取当前会话标识"""
+    return _SESSION_KEY
+
+def get_function_id():
+    """获取当前函数 ID"""
+    return _FUNCTION_ID
+`, config.FunctionID, config.SessionKey)
+
+	// 写入 nimbus 模块
+	if err := os.WriteFile(filepath.Join(FunctionDir, "nimbus.py"), []byte(nimbusModule), 0644); err != nil {
+		return fmt.Errorf("failed to write nimbus module: %w", err)
+	}
+
 	return os.WriteFile(filepath.Join(FunctionDir, "_wrapper.py"), []byte(wrapper), 0644)
 }
 
@@ -815,6 +1000,145 @@ process.stdin.on('end', async () => {
     }
 });
 `, config.Handler, FunctionDir)
+
+	// 创建 nimbus 状态 API 模块
+	nimbusModule := fmt.Sprintf(`
+/**
+ * Nimbus State API - 为有状态函数提供状态管理能力
+ */
+const http = require('http');
+
+const FUNCTION_ID = '%s';
+const SESSION_KEY = process.env.NIMBUS_SESSION_KEY || '%s';
+const STATE_API_URL = 'http://127.0.0.1:9998/state';
+
+class StateError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'StateError';
+    }
+}
+
+async function stateRequest(operation, scope, key, options = {}) {
+    const payload = {
+        function_id: FUNCTION_ID,
+        session_key: SESSION_KEY,
+        operation,
+        scope,
+        key,
+        ...options
+    };
+
+    return new Promise((resolve, reject) => {
+        const data = JSON.stringify(payload);
+        const url = new URL(STATE_API_URL);
+
+        const req = http.request({
+            hostname: url.hostname,
+            port: url.port,
+            path: url.pathname,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(data)
+            },
+            timeout: 5000
+        }, (res) => {
+            let body = '';
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => {
+                try {
+                    const result = JSON.parse(body);
+                    if (!result.success) {
+                        reject(new StateError(result.error || 'Unknown error'));
+                    } else {
+                        resolve(result.value);
+                    }
+                } catch (e) {
+                    reject(new StateError('Invalid response'));
+                }
+            });
+        });
+
+        req.on('error', (e) => {
+            reject(new StateError('State API unavailable: ' + e.message));
+        });
+
+        req.write(data);
+        req.end();
+    });
+}
+
+class State {
+    constructor(scope = 'session') {
+        this.scope = scope;
+    }
+
+    async get(key, defaultValue = null) {
+        try {
+            const value = await stateRequest('get', this.scope, key);
+            return value ? JSON.parse(value) : defaultValue;
+        } catch (e) {
+            return defaultValue;
+        }
+    }
+
+    async set(key, value, ttl = null) {
+        const options = { value: JSON.stringify(value) };
+        if (ttl) options.ttl = ttl;
+        await stateRequest('set', this.scope, key, options);
+    }
+
+    async delete(key) {
+        await stateRequest('delete', this.scope, key);
+    }
+
+    async incr(key, delta = 1) {
+        const result = await stateRequest('incr', this.scope, key, { delta });
+        return result ? JSON.parse(result) : 0;
+    }
+
+    async exists(key) {
+        const result = await stateRequest('exists', this.scope, key);
+        return result ? JSON.parse(result) : false;
+    }
+
+    async keys(pattern = '*') {
+        const result = await stateRequest('keys', this.scope, pattern);
+        return result ? JSON.parse(result) : [];
+    }
+
+    async expire(key, ttl) {
+        await stateRequest('expire', this.scope, key, { ttl });
+    }
+}
+
+// 预创建的状态实例
+const session = new State('session');    // 会话级状态
+const func = new State('function');      // 函数级状态（全局）
+
+function getSessionKey() {
+    return SESSION_KEY;
+}
+
+function getFunctionId() {
+    return FUNCTION_ID;
+}
+
+module.exports = {
+    State,
+    StateError,
+    session,
+    function: func,
+    getSessionKey,
+    getFunctionId
+};
+`, config.FunctionID, config.SessionKey)
+
+	// 写入 nimbus 模块
+	if err := os.WriteFile(filepath.Join(FunctionDir, "nimbus.js"), []byte(nimbusModule), 0644); err != nil {
+		return fmt.Errorf("failed to write nimbus module: %w", err)
+	}
 
 	return os.WriteFile(filepath.Join(FunctionDir, "_wrapper.js"), []byte(wrapper), 0644)
 }

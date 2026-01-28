@@ -171,20 +171,103 @@ func (s *PostgresStore) SaveWarmingPolicy(policy *domain.WarmingPolicy) error {
 
 // GetFunctionCallsTo 获取函数调用的其他函数
 func (s *PostgresStore) GetFunctionCallsTo(functionID string) ([]domain.FunctionDependency, error) {
-	// TODO: 从调用记录中分析依赖关系
-	return []domain.FunctionDependency{}, nil
+	query := `
+		SELECT d.source_id, f1.name as source_name, d.target_id, f2.name as target_name,
+		       d.type, d.call_count, d.last_called_at
+		FROM function_dependencies d
+		JOIN functions f1 ON d.source_id = f1.id
+		JOIN functions f2 ON d.target_id = f2.id
+		WHERE d.source_id = $1
+	`
+	rows, err := s.db.Query(query, functionID)
+	if err != nil {
+		return []domain.FunctionDependency{}, nil
+	}
+	defer rows.Close()
+
+	var deps []domain.FunctionDependency
+	for rows.Next() {
+		var dep domain.FunctionDependency
+		var lastCalled sql.NullTime
+		if err := rows.Scan(&dep.SourceID, &dep.SourceName, &dep.TargetID, &dep.TargetName,
+			&dep.Type, &dep.CallCount, &lastCalled); err != nil {
+			continue
+		}
+		if lastCalled.Valid {
+			dep.LastCalledAt = &lastCalled.Time
+		}
+		deps = append(deps, dep)
+	}
+	return deps, nil
 }
 
 // GetFunctionCalledBy 获取调用该函数的其他函数
 func (s *PostgresStore) GetFunctionCalledBy(functionID string) ([]domain.FunctionDependency, error) {
-	// TODO: 从调用记录中分析依赖关系
-	return []domain.FunctionDependency{}, nil
+	query := `
+		SELECT d.source_id, f1.name as source_name, d.target_id, f2.name as target_name,
+		       d.type, d.call_count, d.last_called_at
+		FROM function_dependencies d
+		JOIN functions f1 ON d.source_id = f1.id
+		JOIN functions f2 ON d.target_id = f2.id
+		WHERE d.target_id = $1
+	`
+	rows, err := s.db.Query(query, functionID)
+	if err != nil {
+		return []domain.FunctionDependency{}, nil
+	}
+	defer rows.Close()
+
+	var deps []domain.FunctionDependency
+	for rows.Next() {
+		var dep domain.FunctionDependency
+		var lastCalled sql.NullTime
+		if err := rows.Scan(&dep.SourceID, &dep.SourceName, &dep.TargetID, &dep.TargetName,
+			&dep.Type, &dep.CallCount, &lastCalled); err != nil {
+			continue
+		}
+		if lastCalled.Valid {
+			dep.LastCalledAt = &lastCalled.Time
+		}
+		deps = append(deps, dep)
+	}
+	return deps, nil
 }
 
 // GetAllDependencyEdges 获取所有依赖边
 func (s *PostgresStore) GetAllDependencyEdges() ([]domain.DependencyEdge, error) {
-	// TODO: 从调用记录和工作流中分析依赖关系
-	return []domain.DependencyEdge{}, nil
+	query := `
+		SELECT source_id, target_id, type, call_count
+		FROM function_dependencies
+		ORDER BY call_count DESC
+	`
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return []domain.DependencyEdge{}, nil
+	}
+	defer rows.Close()
+
+	var edges []domain.DependencyEdge
+	for rows.Next() {
+		var edge domain.DependencyEdge
+		if err := rows.Scan(&edge.Source, &edge.Target, &edge.Type, &edge.CallCount); err != nil {
+			continue
+		}
+		edges = append(edges, edge)
+	}
+	return edges, nil
+}
+
+// AddFunctionDependency 添加或更新函数依赖
+func (s *PostgresStore) AddFunctionDependency(sourceID, targetID string, depType domain.DependencyType) error {
+	query := `
+		INSERT INTO function_dependencies (id, source_id, target_id, type, call_count, last_called_at)
+		VALUES ($1, $2, $3, $4, 1, NOW())
+		ON CONFLICT (source_id, target_id, type) DO UPDATE SET
+			call_count = function_dependencies.call_count + 1,
+			last_called_at = NOW()
+	`
+	_, err := s.db.Exec(query, uuid.New().String(), sourceID, targetID, depType)
+	return err
 }
 
 // GetWorkflowsUsingFunction 获取使用该函数的工作流

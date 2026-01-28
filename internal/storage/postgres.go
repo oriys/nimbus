@@ -581,6 +581,20 @@ func (s *PostgresStore) migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_snapshots_function_id ON function_snapshots(function_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_snapshots_status ON function_snapshots(status)`,
 		`CREATE INDEX IF NOT EXISTS idx_snapshots_expires_at ON function_snapshots(expires_at)`,
+
+		// 创建 function_dependencies 表 - 存储函数依赖关系
+		`CREATE TABLE IF NOT EXISTS function_dependencies (
+			id VARCHAR(36) PRIMARY KEY,
+			source_id VARCHAR(36) NOT NULL REFERENCES functions(id) ON DELETE CASCADE,
+			target_id VARCHAR(36) NOT NULL REFERENCES functions(id) ON DELETE CASCADE,
+			type VARCHAR(32) NOT NULL DEFAULT 'direct_call',
+			call_count BIGINT DEFAULT 0,
+			last_called_at TIMESTAMP WITH TIME ZONE,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+			UNIQUE(source_id, target_id, type)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_deps_source_id ON function_dependencies(source_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_deps_target_id ON function_dependencies(target_id)`,
 	}
 
 	// 依次执行所有迁移语句

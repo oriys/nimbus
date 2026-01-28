@@ -23,6 +23,7 @@ type RedisStore struct {
 }
 
 // NewRedisStore 创建并初始化一个新的 Redis 存储实例。
+// 使用连接池优化性能，默认配置适合高并发场景。
 //
 // 参数:
 //   - cfg: Redis 配置信息，包含地址、密码和数据库编号
@@ -35,6 +36,19 @@ func NewRedisStore(cfg config.RedisConfig) (*RedisStore, error) {
 		Addr:     cfg.Address,
 		Password: cfg.Password,
 		DB:       cfg.DB,
+
+		// 连接池配置 - 优化高并发性能
+		PoolSize:        100,              // 最大连接数
+		MinIdleConns:    10,               // 最小空闲连接数
+		MaxIdleConns:    50,               // 最大空闲连接数
+		ConnMaxIdleTime: 5 * time.Minute,  // 空闲连接超时
+		ConnMaxLifetime: 30 * time.Minute, // 连接最大生存时间
+
+		// 超时配置
+		DialTimeout:  5 * time.Second,  // 连接超时
+		ReadTimeout:  3 * time.Second,  // 读超时
+		WriteTimeout: 3 * time.Second,  // 写超时
+		PoolTimeout:  4 * time.Second,  // 获取连接超时
 	})
 
 	// 使用 5 秒超时测试 Redis 连接

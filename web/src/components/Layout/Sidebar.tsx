@@ -16,6 +16,8 @@ import {
   Bell,
   Network,
   Flame,
+  Database,
+  Camera,
 } from 'lucide-react'
 import { cn } from '../../utils/format'
 
@@ -25,6 +27,8 @@ const navItems = [
   { to: '/workflows', icon: GitBranch, label: '工作流' },
   { to: '/dependencies', icon: Network, label: '依赖分析' },
   { to: '/invocations', icon: PlayCircle, label: '调用' },
+  { to: '/sessions', icon: Database, label: '会话' },
+  { to: '/snapshots', icon: Camera, label: '快照' },
   { to: '/dlq', icon: AlertTriangle, label: '死信队列' },
   { to: '/layers', icon: Layers, label: '层' },
   { to: '/environments', icon: Globe, label: '环境' },
@@ -47,28 +51,28 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     <aside
       className={cn(
         'bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border transition-all duration-300 ease-in-out',
-        collapsed ? 'w-16' : 'w-64'
+        collapsed ? 'w-14' : 'w-48'
       )}
     >
       {/* Logo - 点击切换折叠 */}
       <div
         onClick={onToggle}
-        className="h-16 flex items-center px-3 border-b border-sidebar-border cursor-pointer group transition-colors"
+        className="h-14 flex items-center px-2.5 border-b border-sidebar-border cursor-pointer group transition-colors"
         title={collapsed ? '展开侧边栏' : '收起侧边栏'}
       >
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-accent/20 to-accent/5 flex-shrink-0 transition-all duration-300 group-hover:shadow-glow-accent group-hover:scale-105">
-          <Zap className="w-5 h-5 text-accent transition-transform duration-300 group-hover:rotate-12" />
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent/20 to-accent/5 flex-shrink-0 transition-all duration-300 group-hover:shadow-glow-accent group-hover:scale-105">
+          <Zap className="w-4 h-4 text-accent transition-transform duration-300 group-hover:rotate-12" />
         </div>
         {!collapsed && (
-          <span className="ml-3 text-xl font-display font-semibold text-accent whitespace-nowrap overflow-hidden">
+          <span className="ml-2.5 text-lg font-display font-semibold text-accent whitespace-nowrap overflow-hidden">
             Nimbus
           </span>
         )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4">
-        <ul className="space-y-1 px-2">
+      <nav className="flex-1 py-2 overflow-y-auto">
+        <ul className="space-y-0.5 px-1.5">
           {navItems.map((item, index) => (
             <li key={item.to} style={{ animationDelay: `${index * 50}ms` }} className="animate-fade-in-up">
               <NavLink
@@ -76,16 +80,16 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 title={collapsed ? item.label : undefined}
                 className={({ isActive }) =>
                   cn(
-                    'flex items-center rounded-lg transition-all duration-200 group',
-                    collapsed ? 'justify-center px-2 py-3' : 'px-4 py-3',
+                    'flex items-center rounded-md transition-all duration-200 group text-sm',
+                    collapsed ? 'justify-center px-2 py-2' : 'px-3 py-2',
                     isActive
                       ? 'bg-accent text-accent-foreground font-medium shadow-glow'
                       : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
                   )
                 }
               >
-                <item.icon className="w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" />
-                {!collapsed && <span className="ml-3 whitespace-nowrap">{item.label}</span>}
+                <item.icon className="w-4 h-4 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                {!collapsed && <span className="ml-2.5 whitespace-nowrap">{item.label}</span>}
               </NavLink>
             </li>
           ))}
@@ -93,15 +97,15 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="p-3 border-t border-sidebar-border">
-        <div className={cn('flex items-center gap-3', collapsed ? 'justify-center' : 'px-2')}>
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-accent/30 to-accent/10 flex-shrink-0">
+      <div className="p-2 border-t border-sidebar-border">
+        <div className={cn('flex items-center gap-2', collapsed ? 'justify-center' : 'px-1.5')}>
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-accent/30 to-accent/10 flex-shrink-0">
             <span className="text-xs font-display font-semibold text-accent">N</span>
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-display font-medium text-foreground truncate">Nimbus</p>
-              <p className="text-xs text-muted-foreground font-mono">v0.1.0</p>
+              <p className="text-xs font-display font-medium text-foreground truncate">Nimbus</p>
+              <p className="text-[10px] text-muted-foreground font-mono">v0.1.0</p>
             </div>
           )}
         </div>

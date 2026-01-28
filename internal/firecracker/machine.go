@@ -415,6 +415,41 @@ func (m *MachineManager) CreateSnapshot(ctx context.Context, vmID, snapshotID st
 	return nil
 }
 
+// CreateSnapshotWithPath 创建虚拟机的快照到指定路径。
+// 与 CreateSnapshot 不同，此方法允许调用者指定快照文件的完整路径。
+// 参数：
+//   - ctx: 上下文
+//   - vmID: 虚拟机 ID
+//   - memFilePath: 内存快照文件完整路径
+//   - snapshotFilePath: 状态快照文件完整路径
+func (m *MachineManager) CreateSnapshotWithPath(ctx context.Context, vmID, memFilePath, snapshotFilePath string) error {
+	m.mu.RLock()
+	vm, ok := m.vms[vmID]
+	m.mu.RUnlock()
+	if !ok {
+		return fmt.Errorf("vm not found: %s", vmID)
+	}
+
+	// 暂停虚拟机以创建一致的快照
+	if err := vm.machine.PauseVM(ctx); err != nil {
+		return fmt.Errorf("failed to pause VM: %w", err)
+	}
+
+	// 创建快照
+	if err := vm.machine.CreateSnapshot(ctx, memFilePath, snapshotFilePath); err != nil {
+		vm.machine.ResumeVM(ctx) // 恢复虚拟机
+		return fmt.Errorf("failed to create snapshot: %w", err)
+	}
+
+	m.logger.WithFields(logrus.Fields{
+		"vm_id":         vmID,
+		"mem_file":      memFilePath,
+		"snapshot_file": snapshotFilePath,
+	}).Info("Snapshot created with custom path")
+
+	return nil
+}
+
 // RestoreFromSnapshot 从快照恢复创建新的虚拟机。
 // 比从头创建虚拟机更快，适用于需要快速启动的场景。
 // 参数：

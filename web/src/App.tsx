@@ -26,6 +26,8 @@ const Quota = lazy(() => import('./pages/Quota'))
 const Alerts = lazy(() => import('./pages/Alerts'))
 const Dependencies = lazy(() => import('./pages/Dependencies'))
 const Warming = lazy(() => import('./pages/Warming'))
+const Sessions = lazy(() => import('./pages/Sessions'))
+const Snapshots = lazy(() => import('./pages/Snapshots'))
 
 // Loading fallback for lazy loaded pages
 function PageLoading() {
@@ -73,6 +75,8 @@ function App() {
           <Route path="alerts" element={<Alerts />} />
           <Route path="dependencies" element={<Dependencies />} />
           <Route path="warming" element={<Warming />} />
+          <Route path="sessions" element={<Sessions />} />
+          <Route path="snapshots" element={<Snapshots />} />
         </Route>
       </Routes>
     </Suspense>

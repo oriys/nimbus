@@ -3,9 +3,12 @@
 package state
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -15,11 +18,18 @@ import (
 	"github.com/oriys/nimbus/internal/domain"
 )
 
+// 压缩阈值：超过此大小的值将被压缩
+const compressionThreshold = 1024 // 1KB
+
+// 压缩标记前缀
+const compressedPrefix = "\x1f\x8b" // gzip magic number
+
 // Handler 处理状态操作请求
 type Handler struct {
-	redis  *redis.Client
-	logger *logrus.Logger
-	config *domain.StateConfig
+	redis            *redis.Client
+	logger           *logrus.Logger
+	config           *domain.StateConfig
+	enableCompression bool // 是否启用压缩
 }
 
 // StateRequest 状态请求
@@ -50,10 +60,52 @@ func NewHandler(redisClient *redis.Client, config *domain.StateConfig, logger *l
 		config = domain.DefaultStateConfig()
 	}
 	return &Handler{
-		redis:  redisClient,
-		logger: logger,
-		config: config,
+		redis:             redisClient,
+		logger:            logger,
+		config:            config,
+		enableCompression: true, // 默认启用压缩
 	}
+}
+
+// compress 压缩数据（如果超过阈值）
+func (h *Handler) compress(data []byte) []byte {
+	if !h.enableCompression || len(data) < compressionThreshold {
+		return data
+	}
+
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	if _, err := gz.Write(data); err != nil {
+		return data // 压缩失败，返回原数据
+	}
+	if err := gz.Close(); err != nil {
+		return data
+	}
+
+	// 只有压缩后更小才使用压缩数据
+	if buf.Len() < len(data) {
+		return buf.Bytes()
+	}
+	return data
+}
+
+// decompress 解压数据（如果是压缩的）
+func (h *Handler) decompress(data []byte) []byte {
+	if len(data) < 2 || string(data[:2]) != compressedPrefix {
+		return data // 不是压缩数据
+	}
+
+	gz, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return data // 解压失败，返回原数据
+	}
+	defer gz.Close()
+
+	decompressed, err := io.ReadAll(gz)
+	if err != nil {
+		return data
+	}
+	return decompressed
 }
 
 // Handle 处理状态操作
@@ -116,7 +168,9 @@ func (h *Handler) handleGet(ctx context.Context, key string) *StateResult {
 	if err != nil {
 		return &StateResult{Success: false, Error: err.Error()}
 	}
-	return &StateResult{Success: true, Value: val}
+	// 解压数据
+	decompressed := h.decompress(val)
+	return &StateResult{Success: true, Value: decompressed}
 }
 
 func (h *Handler) handleGetWithVersion(ctx context.Context, key string) *StateResult {
@@ -135,8 +189,10 @@ func (h *Handler) handleGetWithVersion(ctx context.Context, key string) *StateRe
 		return &StateResult{Success: false, Error: err.Error()}
 	}
 
+	// 解压数据
+	decompressed := h.decompress(val)
 	version, _ := verCmd.Int64()
-	return &StateResult{Success: true, Value: val, Version: version}
+	return &StateResult{Success: true, Value: decompressed, Version: version}
 }
 
 func (h *Handler) handleSet(ctx context.Context, key string, req *StateRequest) *StateResult {
@@ -152,11 +208,14 @@ func (h *Handler) handleSet(ctx context.Context, key string, req *StateRequest) 
 		ttl = time.Duration(h.config.DefaultTTL) * time.Second
 	}
 
+	// 压缩数据
+	compressed := h.compress([]byte(req.Value))
+
 	var err error
 	if ttl > 0 {
-		err = h.redis.Set(ctx, key, []byte(req.Value), ttl).Err()
+		err = h.redis.Set(ctx, key, compressed, ttl).Err()
 	} else {
-		err = h.redis.Set(ctx, key, []byte(req.Value), 0).Err()
+		err = h.redis.Set(ctx, key, compressed, 0).Err()
 	}
 
 	if err != nil {
@@ -167,6 +226,9 @@ func (h *Handler) handleSet(ctx context.Context, key string, req *StateRequest) 
 
 func (h *Handler) handleSetWithVersion(ctx context.Context, key string, req *StateRequest) *StateResult {
 	versionKey := key + ":version"
+
+	// 压缩数据
+	compressed := h.compress([]byte(req.Value))
 
 	// 使用 Lua 脚本实现乐观锁
 	script := redis.NewScript(`
@@ -190,7 +252,7 @@ func (h *Handler) handleSetWithVersion(ctx context.Context, key string, req *Sta
 	`)
 
 	result, err := script.Run(ctx, h.redis, []string{key, versionKey},
-		string(req.Value), req.Version, req.TTL).Slice()
+		string(compressed), req.Version, req.TTL).Slice()
 
 	if err != nil {
 		return &StateResult{Success: false, Error: err.Error()}

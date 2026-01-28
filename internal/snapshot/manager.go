@@ -87,11 +87,28 @@ type DBExecutor interface {
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 }
 
+// SnapshotBuilder 快照构建器接口
+// 用于抽象实际的快照创建逻辑，方便测试和不同实现
+type SnapshotBuilder interface {
+	// BuildSnapshot 构建函数快照
+	// 参数：
+	//   - ctx: 上下文
+	//   - fn: 函数定义
+	//   - version: 版本号
+	//   - snapshotPath: 快照保存路径
+	// 返回：
+	//   - memSize: 内存快照大小
+	//   - stateSize: 状态快照大小
+	//   - error: 错误
+	BuildSnapshot(ctx context.Context, fn *domain.Function, version int, snapshotPath string) (memSize, stateSize int64, err error)
+}
+
 // Manager 管理函数级快照
 type Manager struct {
-	cfg    config.SnapshotConfig
-	db     DBExecutor
-	logger *logrus.Logger
+	cfg     config.SnapshotConfig
+	db      DBExecutor
+	builder SnapshotBuilder // 实际的快照构建器（可选）
+	logger  *logrus.Logger
 
 	// 构建任务队列
 	buildQueue chan *buildTask
@@ -137,6 +154,12 @@ func NewManager(cfg config.SnapshotConfig, db DBExecutor, logger *logrus.Logger)
 	}).Info("Snapshot manager started")
 
 	return m
+}
+
+// SetBuilder 设置快照构建器
+// 在启动后调用此方法来设置实际的快照构建器
+func (m *Manager) SetBuilder(builder SnapshotBuilder) {
+	m.builder = builder
 }
 
 // GetSnapshot 获取函数的有效快照
@@ -273,15 +296,18 @@ func (m *Manager) buildWorker(id int) {
 }
 
 // buildSnapshot 构建函数快照
-// 注意：实际的快照创建需要 Firecracker 集成，这里创建快照记录和目录结构
+// 如果设置了 builder，使用实际的 Firecracker 快照创建；否则创建占位文件
 func (m *Manager) buildSnapshot(fn *domain.Function, version int) error {
 	ctx, cancel := context.WithTimeout(m.ctx, m.cfg.BuildTimeout)
 	defer cancel()
+
+	startTime := time.Now()
 
 	m.logger.WithFields(logrus.Fields{
 		"function_id": fn.ID,
 		"version":     version,
 		"code_hash":   fn.CodeHash,
+		"has_builder": m.builder != nil,
 	}).Info("Building function snapshot")
 
 	// 生成快照 ID 和路径
@@ -322,44 +348,57 @@ func (m *Manager) buildSnapshot(fn *domain.Function, version int) error {
 		m.logger.WithError(err).Warn("Failed to write metadata")
 	}
 
-	// TODO: 实际的 Firecracker 快照创建流程：
-	// 1. 创建新 VM
-	// 2. 连接 vsock
-	// 3. 发送 InitPayload（注入代码）
-	// 4. 可选执行预热调用
-	// 5. 调用 machinesMgr.CreateSnapshotWithPath(ctx, vm.ID, memPath, statePath)
-	// 6. 销毁预热 VM
-	//
-	// 当前实现只创建记录，实际快照创建需要在 VM Pool 层面集成
+	var memSize, stateSize int64
+	var buildErr error
 
-	// 创建占位文件（实际快照会替换这些文件）
-	memPath := filepath.Join(snapshotPath, "mem")
-	statePath := filepath.Join(snapshotPath, "snapshot")
+	// 如果有实际的快照构建器，使用它
+	if m.builder != nil {
+		memSize, stateSize, buildErr = m.builder.BuildSnapshot(ctx, fn, version, snapshotPath)
+		if buildErr != nil {
+			m.updateSnapshotStatus(ctx, snapshotID, StatusFailed, buildErr.Error())
+			m.logger.WithError(buildErr).WithFields(logrus.Fields{
+				"function_id":   fn.ID,
+				"snapshot_path": snapshotPath,
+			}).Error("Failed to build snapshot with builder")
+			return fmt.Errorf("snapshot build failed: %w", buildErr)
+		}
+	} else {
+		// 没有构建器时，创建占位文件（用于开发/测试）
+		memPath := filepath.Join(snapshotPath, "mem")
+		statePath := filepath.Join(snapshotPath, "snapshot")
 
-	// 写入占位内容（表示快照尚未实际创建）
-	if err := os.WriteFile(memPath, []byte("placeholder"), 0644); err != nil {
-		m.updateSnapshotStatus(ctx, snapshotID, StatusFailed, err.Error())
-		return fmt.Errorf("failed to create mem placeholder: %w", err)
+		// 写入占位内容
+		if err := os.WriteFile(memPath, []byte("placeholder-no-builder"), 0644); err != nil {
+			m.updateSnapshotStatus(ctx, snapshotID, StatusFailed, err.Error())
+			return fmt.Errorf("failed to create mem placeholder: %w", err)
+		}
+		if err := os.WriteFile(statePath, []byte("placeholder-no-builder"), 0644); err != nil {
+			m.updateSnapshotStatus(ctx, snapshotID, StatusFailed, err.Error())
+			return fmt.Errorf("failed to create state placeholder: %w", err)
+		}
+
+		// 获取占位文件大小
+		memInfo, _ := os.Stat(memPath)
+		stateInfo, _ := os.Stat(statePath)
+		memSize = memInfo.Size()
+		stateSize = stateInfo.Size()
 	}
-	if err := os.WriteFile(statePath, []byte("placeholder"), 0644); err != nil {
-		m.updateSnapshotStatus(ctx, snapshotID, StatusFailed, err.Error())
-		return fmt.Errorf("failed to create state placeholder: %w", err)
-	}
-
-	// 获取文件大小
-	memInfo, _ := os.Stat(memPath)
-	stateInfo, _ := os.Stat(statePath)
 
 	// 更新数据库记录为 ready
-	if err := m.updateSnapshotReady(ctx, snapshotID, memInfo.Size(), stateInfo.Size()); err != nil {
+	if err := m.updateSnapshotReady(ctx, snapshotID, memSize, stateSize); err != nil {
 		return fmt.Errorf("failed to update snapshot record: %w", err)
 	}
 
+	buildDuration := time.Since(startTime)
 	m.logger.WithFields(logrus.Fields{
 		"snapshot_id":   snapshotID,
 		"function_id":   fn.ID,
 		"snapshot_path": snapshotPath,
-	}).Info("Function snapshot record created (placeholder)")
+		"mem_size":      memSize,
+		"state_size":    stateSize,
+		"duration_ms":   buildDuration.Milliseconds(),
+		"has_builder":   m.builder != nil,
+	}).Info("Function snapshot created")
 
 	return nil
 }

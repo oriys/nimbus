@@ -60,13 +60,18 @@ export default defineConfig({
                         if (id.includes('echarts') || id.includes('zrender')) {
                             return 'vendor-charts';
                         }
-                        // 将 react 核心库提取
-                        if (id.includes('react') || id.includes('scheduler')) {
-                            return 'vendor-core';
-                        }
-                        // 将 reactflow 提取
+                        // 将 reactflow 提取（必须在 react 之前检查）
                         if (id.includes('reactflow') || id.includes('@reactflow')) {
                             return 'vendor-flow';
+                        }
+                        // 将 react 相关库全部放在一起（避免循环依赖）
+                        if (id.includes('node_modules/react/') ||
+                            id.includes('node_modules/react-dom/') ||
+                            id.includes('node_modules/react-router') ||
+                            id.includes('node_modules/scheduler/') ||
+                            id.includes('node_modules/@remix-run/') ||
+                            id.includes('node_modules/use-sync-external-store/')) {
+                            return 'vendor-core';
                         }
                         // 其他第三方库
                         return 'vendor-libs';
